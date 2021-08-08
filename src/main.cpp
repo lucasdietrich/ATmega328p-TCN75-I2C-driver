@@ -36,6 +36,12 @@ int main(void)
 
   while(1)
   {
+    // Master send
+    uint8_t reg = 0b00; // 0n00 : tmp / 0b10 : set, 0b11 : hyst
+    twi_send(TCN75_ADDR, &reg, 1);
+
+    usart_printl("I2C send finished");
+
     // Master Receiver mode : 2 bytes
     twi_recv(TCN75_ADDR, rx_buffer, 2);
 
