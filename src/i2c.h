@@ -6,10 +6,13 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/twi.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*___________________________________________________________________________*/
 
 #define SET_BIT(reg, val) (reg |= val); 
 #define CLR_BIT(reg, val) (reg &= ~(val));
@@ -19,25 +22,40 @@ extern "C" {
 #define SCL_FREQ_100kHz     100000L
 #define SCL_FREQ            SCL_FREQ_100kHz     // kHz
 
-// 0xf8
-#define TWI_STATUS_MASK ((1 << TWS7) | (1 << TWS6) | (1 << TWS5) | (1 << TWS4) | (1 << TWS3))
+#define TW_ACK      1
+#define TW_NACK     0
 
-// rename to TWI_MR_ // twi master receive
-#define TWI_STATUS_START      0x08
-#define TWI_STATUS_RSTART     0x10
-#define TWI_STATUS_SLAR_ARBL  0x38
-#define TWI_STATUS_SLAR_ACK   0x40
-#define TWI_STATUS_SLAR_NACK  0x48
-#define TWI_STATUS_DATA_ACK   0x50
-#define TWI_STATUS_DATA_NACK  0x58
+#define TW_READ     1
+#define TW_WRITE    0
 
-#define TWI_READ              0b1
-#define TWI_WRITE             0b1
+/*___________________________________________________________________________*/
+
+enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER};
+
+extern volatile uint8_t state;
+
+/*___________________________________________________________________________*/
 
 void twi_init(void);
-void twi_wait(uint8_t status);
-void twi_exit(uint8_t err);
+void twi_set_addr(uint8_t addr);
+void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len);
 
+
+
+/*___________________________________________________________________________*/
+
+
+void _twi_reply(uint8_t ack);
+void _twi_start(void);
+void _twi_stop(void);
+void _twi_write(uint8_t data);
+
+// void _twi_send(uint8_t *buffer, const uint8_t len);
+// void _twi_recv(uint8_t *buffer, const uint8_t len);
+
+void _twi_exit(uint8_t err);
+
+/*___________________________________________________________________________*/
 
 #ifdef __cplusplus
 }
