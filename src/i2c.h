@@ -34,14 +34,15 @@ enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER, ERROR};
 
 extern volatile uint8_t twi_state;
 
+typedef void (*twi_handler_t) (void);
+
 /*___________________________________________________________________________*/
 
 void twi_init(void);
 void twi_set_addr(uint8_t addr);
-void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len);
+void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len, twi_handler_t rx_handler);
 
 /*___________________________________________________________________________*/
-
 
 void _twi_reply(uint8_t ack);
 void _twi_start(void);

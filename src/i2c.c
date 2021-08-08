@@ -18,6 +18,8 @@ static volatile uint8_t rx_len;
 static volatile uint8_t *rx_buffer;
 static volatile uint8_t received;
 
+static twi_handler_t handler = NULL;
+
 /*___________________________________________________________________________*/
 
 
@@ -44,7 +46,7 @@ void twi_set_addr(uint8_t addr)
     sla_rw = ((addr & 0x7F) << 1);
 }
 
-void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len)
+void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len, twi_handler_t rx_handler)
 {
     twi_set_addr(addr);
 
@@ -53,6 +55,7 @@ void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len)
     rx_buffer = buffer;
     rx_len = len;
     received = 0;
+    handler = rx_handler;
     
     _twi_start();
 }
@@ -93,6 +96,10 @@ ISR(TWI_vect)
             rx_buffer[received++] = TWDR;
             twi_state = READY;   // driver is ready again
             _twi_stop();
+            if (handler != NULL)
+            {
+                handler();
+            }
             break;
 
         case TW_MR_ARB_LOST:
