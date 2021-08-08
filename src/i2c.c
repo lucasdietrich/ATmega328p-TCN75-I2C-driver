@@ -5,16 +5,18 @@
 
 /*___________________________________________________________________________*/
 
-volatile uint8_t state;
+volatile uint8_t twi_state;
 
 static volatile uint8_t sla_rw;
 
 
 static volatile uint8_t tx_len;
-static volatile uint8_t tx_buffer[1];
+static volatile uint8_t *tx_buffer;
+static volatile uint8_t sent;
 
 static volatile uint8_t rx_len;
 static volatile uint8_t *rx_buffer;
+static volatile uint8_t received;
 
 /*___________________________________________________________________________*/
 
@@ -46,10 +48,11 @@ void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len)
 {
     twi_set_addr(addr);
 
-    state = MASTER_RECEIVER;
+    twi_state = MASTER_RECEIVER;
 
     rx_buffer = buffer;
     rx_len = len;
+    received = 0;
     
     _twi_start();
 }
@@ -67,7 +70,7 @@ ISR(TWI_vect)
     {
         case TW_START:
         case TW_REP_START:
-            if (state == MASTER_TRANSMITTER)
+            if (twi_state == MASTER_TRANSMITTER)
             {
                 TWDR = sla_rw | TW_WRITE;
             }
@@ -80,15 +83,15 @@ ISR(TWI_vect)
         
         
         case TW_MR_DATA_ACK:
-            rx_buffer[--rx_len] = TWDR;
+            rx_buffer[received++] = TWDR;
 
         case TW_MR_SLA_ACK:
-            _twi_reply(rx_len > 1 ? TW_ACK : TW_NACK);
+            _twi_reply(rx_len - received > 1 ? TW_ACK : TW_NACK);
             break;
 
         case TW_MR_DATA_NACK:
-            rx_buffer[--rx_len] = TWDR;
-            state = READY;   // driver is ready again
+            rx_buffer[received++] = TWDR;
+            twi_state = READY;   // driver is ready again
             _twi_stop();
             break;
 
@@ -101,7 +104,7 @@ ISR(TWI_vect)
         case TW_BUS_ERROR:
             _twi_exit(status);  // todo remove
 
-            state = READY;
+            twi_state = READY;
             break;
     }
 }
@@ -149,5 +152,7 @@ void _twi_exit(uint8_t err)
 
   sleep_cpu();
 }
+
+
 
 /*___________________________________________________________________________*/

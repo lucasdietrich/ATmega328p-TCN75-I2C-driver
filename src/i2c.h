@@ -30,17 +30,15 @@ extern "C" {
 
 /*___________________________________________________________________________*/
 
-enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER};
+enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER, ERROR};
 
-extern volatile uint8_t state;
+extern volatile uint8_t twi_state;
 
 /*___________________________________________________________________________*/
 
 void twi_init(void);
 void twi_set_addr(uint8_t addr);
 void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len);
-
-
 
 /*___________________________________________________________________________*/
 
@@ -49,6 +47,8 @@ void _twi_reply(uint8_t ack);
 void _twi_start(void);
 void _twi_stop(void);
 void _twi_write(uint8_t data);
+
+void _rx_handler(void);
 
 // void _twi_send(uint8_t *buffer, const uint8_t len);
 // void _twi_recv(uint8_t *buffer, const uint8_t len);
