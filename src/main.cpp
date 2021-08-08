@@ -11,11 +11,6 @@
 #include "i2c.h"
 #include "tcn75.h"
 
-void handler(void)
-{
-  usart_transmit('U');
-}
-
 static void print_temp(double temp)
 {
   char temp_str[6];
@@ -37,22 +32,18 @@ int main(void)
   _delay_ms(1000);
 
   twi_init();
-
-  // Master Receiver mode : 2 bytes
-  twi_recv(TCN75_ADDR, rx_buffer, 2, handler);
+  twi_set_blocking(TW_BLOCKING);
 
   while(1)
   {
-    if (twi_state == READY)
-    {
-      usart_printl("I2C recv finished");
-      double temp = tcn75_temp2float(rx_buffer[0], rx_buffer[1]);
-      print_temp(temp);
+    // Master Receiver mode : 2 bytes
+    twi_recv(TCN75_ADDR, rx_buffer, 2);
 
-      _delay_ms(1000);
+    usart_printl("I2C recv finished");
+    double temp = tcn75_temp2float(rx_buffer[0], rx_buffer[1]);
+    print_temp(temp);
 
-      twi_recv(TCN75_ADDR, rx_buffer, 2, handler);
-    }
+    _delay_ms(1000);
   }
 
   sleep_cpu();

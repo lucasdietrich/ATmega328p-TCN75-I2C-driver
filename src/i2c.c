@@ -5,10 +5,11 @@
 
 /*___________________________________________________________________________*/
 
-volatile uint8_t twi_state;
+volatile uint8_t twi_state = READY;
+volatile uint8_t twi_error = 0; 
+volatile uint8_t twi_flags = 0; 
 
 static volatile uint8_t sla_rw;
-
 
 static volatile uint8_t tx_len;
 static volatile uint8_t *tx_buffer;
@@ -18,7 +19,7 @@ static volatile uint8_t rx_len;
 static volatile uint8_t *rx_buffer;
 static volatile uint8_t received;
 
-static twi_handler_t handler = NULL;
+static twi_handler_t twi_handler = NULL;
 
 /*___________________________________________________________________________*/
 
@@ -46,18 +47,74 @@ void twi_set_addr(uint8_t addr)
     sla_rw = ((addr & 0x7F) << 1);
 }
 
-void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len, twi_handler_t rx_handler)
+void twi_set_handler(twi_handler_t handler)
 {
-    twi_set_addr(addr);
+    twi_handler = handler;
+}
 
-    twi_state = MASTER_RECEIVER;
+void twi_set_blocking(const uint8_t blocking)
+{
+    if (blocking == TW_BLOCKING)
+    {
+        twi_set_handler(NULL);
+        twi_flags |= _BV(TW_BLOCKING_FLAG);
+    }
+    else
+    {
+        twi_flags &= ~_BV(TW_BLOCKING_FLAG);
+    }
+}
 
-    rx_buffer = buffer;
-    rx_len = len;
-    received = 0;
-    handler = rx_handler;
+
+int8_t twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len)
+{
+    if (twi_state == READY)
+    {
+        twi_set_addr(addr);
+
+        twi_state = MASTER_RECEIVER;
+        twi_error = 0;
+
+        rx_buffer = buffer;
+        rx_len = len;
+        received = 0;
+
+        _twi_start();
+
+        if (twi_flags & _BV(TW_BLOCKING_FLAG))
+        {
+            while (twi_state != READY);
+        }
+
+        return twi_error;
+    }
+    return -1;
+}
+
+int8_t twi_send(const uint8_t addr, uint8_t *const buffer, const uint8_t len)
+{
+    if (twi_state == READY)
+    {
+        twi_set_addr(addr);
+
+        twi_state = MASTER_TRANSMITTER;
+        twi_error = 0;
+
+        tx_buffer = buffer;
+        tx_len = len;
+        sent = 0;
+        
+        _twi_start();
+        
+        if (twi_flags & _BV(TW_BLOCKING_FLAG))
+        {
+            while (twi_state != READY);
+        }
+
+        return twi_error;
+    }
     
-    _twi_start();
+    return -1;
 }
 
 /*___________________________________________________________________________*/
@@ -84,7 +141,6 @@ ISR(TWI_vect)
             _twi_reply(1);
             break;
         
-        
         case TW_MR_DATA_ACK:
             rx_buffer[received++] = TWDR;
 
@@ -96,9 +152,9 @@ ISR(TWI_vect)
             rx_buffer[received++] = TWDR;
             twi_state = READY;   // driver is ready again
             _twi_stop();
-            if (handler != NULL)
+            if (twi_handler != NULL)
             {
-                handler();
+                twi_handler();
             }
             break;
 
@@ -106,12 +162,36 @@ ISR(TWI_vect)
         case TW_MR_SLA_NACK:
             _twi_start();
             break;
+        
+        case TW_MT_DATA_ACK:
+            sent++;
+        case TW_MT_SLA_ACK:
+            if (sent < tx_len)
+            {
+                TWDR = tx_buffer[sent];
+                _twi_reply(1);
+            }
+            else
+            {
+                twi_state = READY;   // driver is ready again
+                _twi_stop();    // all data have been sent
+                if (twi_handler != NULL)
+                {
+                    twi_handler();
+                }
+            }
+            break;
+        
+        case TW_MT_SLA_NACK:
+        case TW_MT_DATA_NACK:
+            _twi_stop();
+            break;
 
         case TW_NO_INFO:
         case TW_BUS_ERROR:
-            _twi_exit(status);  // todo remove
-
             twi_state = READY;
+            twi_error = 1;
+            _twi_stop();
             break;
     }
 }

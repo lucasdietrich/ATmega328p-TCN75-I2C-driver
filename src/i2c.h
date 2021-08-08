@@ -28,11 +28,18 @@ extern "C" {
 #define TW_READ     1
 #define TW_WRITE    0
 
+#define TW_BLOCKING         1
+#define TW_NONBLOCKING      0
+
+#define TW_BLOCKING_FLAG    0
+
 /*___________________________________________________________________________*/
 
-enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER, ERROR};
+enum { READY, MASTER_RECEIVER, MASTER_TRANSMITTER};
 
 extern volatile uint8_t twi_state;
+extern volatile uint8_t twi_error; 
+extern volatile uint8_t twi_flags; 
 
 typedef void (*twi_handler_t) (void);
 
@@ -40,7 +47,11 @@ typedef void (*twi_handler_t) (void);
 
 void twi_init(void);
 void twi_set_addr(uint8_t addr);
-void twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len, twi_handler_t rx_handler);
+void twi_set_handler(twi_handler_t handler);
+void twi_set_blocking(const uint8_t blocking);
+
+int8_t twi_recv(const uint8_t addr, uint8_t *const buffer, const uint8_t len);
+int8_t twi_send(const uint8_t addr, uint8_t *const buffer, const uint8_t len);
 
 /*___________________________________________________________________________*/
 
